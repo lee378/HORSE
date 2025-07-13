@@ -1,97 +1,110 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# H.O.R.S.E. Basketball Challenge
 
-# Getting Started
+A React Native mobile game where players take turns making basketball shots. Each player must replicate the previous player's successful shot, or they receive a letter. The first player to spell "HORSE" loses.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features
 
-## Step 1: Start Metro
+- **Multiplayer Gameplay**: Support for 2-4 players
+- **Customizable Settings**: Adjustable difficulty and game rounds
+- **Haptic Feedback**: Tactile feedback for shot interactions
+- **Modern UI**: Beautiful gradient design with smooth animations
+- **Game Statistics**: Track scores and H.O.R.S.E. progress
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Game Rules
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+1. Players take turns shooting basketball
+2. If a player makes a shot, the next player must make the same shot
+3. If a player misses, they receive a letter (H-O-R-S-E)
+4. The first player to spell "HORSE" loses
+5. The last player standing wins!
 
-```sh
-# Using npm
+## Tech Stack
+
+- **React Native** with Expo
+- **TypeScript** for type safety
+- **React Navigation** for screen navigation
+- **Expo Haptics** for tactile feedback
+- **Linear Gradient** for beautiful UI effects
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- Expo CLI
+- iOS Simulator or Android Emulator
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd HORSE_App
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+4. Run on your preferred platform:
+```bash
+# iOS
 npm run ios
 
-# OR using Yarn
-yarn ios
+# Android
+npm run android
+
+# Web
+npm run web
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Project Structure
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```
+src/
+├── components/          # Reusable UI components
+│   ├── Button.tsx     # Custom button component
+│   ├── Card.tsx       # Card container component
+│   └── HORSEDisplay.tsx # H.O.R.S.E. letters display
+├── constants/          # Design system and constants
+│   └── designSystem.ts # Colors, typography, spacing
+├── screens/           # App screens
+│   ├── MainMenu.tsx   # Main menu screen
+│   ├── GameSetup.tsx  # Game configuration
+│   ├── Gameplay.tsx   # Main game screen
+│   ├── Results.tsx    # Game results
+│   └── Settings.tsx   # App settings
+├── types/             # TypeScript type definitions
+│   └── index.ts       # Game state and navigation types
+└── utils/             # Utility functions
+```
 
-## Step 3: Modify your app
+## Game Flow
 
-Now that you have successfully run the app, let's make changes!
+1. **Main Menu**: Start game, view settings, or learn how to play
+2. **Game Setup**: Configure players (2-4) and game settings
+3. **Gameplay**: Take turns shooting basketball with haptic feedback
+4. **Results**: View final standings and H.O.R.S.E. progress
+5. **Settings**: Customize audio, haptics, and difficulty
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## Contributing
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+## License
 
-## Congratulations! :tada:
+This project is licensed under the MIT License.
 
-You've successfully run and modified your React Native App. :partying_face:
+## Version
 
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Current version: 1.0.0 
