@@ -1,178 +1,229 @@
 import React, { useState, useEffect } from 'react';
-import { Vibration, 
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  Animated,
-  Dimensions,
-} from 'react-native';
-import { Vibration,  Button } from '../components/Button';
-import { Vibration,  HORSEDisplay } from '../components/HORSEDisplay';
-import { Vibration,  Colors, Typography, Layout, Spacing, BorderRadius } from '../constants/designSystem';
-import { Vibration,  GameState, Player } from '../types';
+import { View, Text, StyleSheet, SafeAreaView, Vibration, Alert } from 'react-native';
+import { Button } from '../components/Button';
+import { HORSEDisplay } from '../components/HORSEDisplay';
+import { BasketballCourt } from '../components/BasketballCourt';
+import { Colors, Typography, Spacing, BorderRadius } from '../constants/designSystem';
+import { GameState, GameSequence } from '../types';
+import { GAME_SEQUENCES, generateRandomSequence } from '../constants/basketballMoves';
 
 interface GameplayProps {
   navigation: any;
   route: { params: { gameState: GameState } };
 }
 
-const { width: screenWidth } = Dimensions.get('window');
-
 export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
   const { gameState: initialGameState } = route.params;
-  const [gameState, setGameState] = useState(initialGameState);
-  const [shotMeter, setShotMeter] = useState(0);
-  const [isShooting, setIsShooting] = useState(false);
-  const [shotAnimation] = useState(new Animated.Value(0));
+  const [gameState, setGameState] = useState<GameState>({
+    ...initialGameState,
+    currentSequence: undefined,
+    sequenceStep: 0,
+    isSequencePlaying: false,
+    isSequenceReplaying: false,
+    currentMoveIndex: 0,
+  });
+  
+  const [currentPhase, setCurrentPhase] = useState<'demo' | 'replay' | 'waiting'>('waiting');
+  const [sequenceAccuracy, setSequenceAccuracy] = useState<number>(0);
+  const [playerInput, setPlayerInput] = useState<GameSequence | null>(null);
+
+  // Generate a new sequence when the game starts
+  useEffect(() => {
+    if (!gameState.currentSequence) {
+      generateNewSequence();
+    }
+  }, []);
+
+  const generateNewSequence = () => {
+    const difficulty = gameState.players[gameState.currentPlayerIndex].letters.length === 0 ? 'easy' : 
+                     gameState.players[gameState.currentPlayerIndex].letters.length <= 2 ? 'medium' : 'hard';
+    const sequenceLength = Math.min(2 + Math.floor(gameState.players[gameState.currentPlayerIndex].letters.length / 2), 5);
+    
+    const newSequence = generateRandomSequence(difficulty, sequenceLength);
+    setGameState(prev => ({
+      ...prev,
+      currentSequence: newSequence,
+      currentMoveIndex: 0,
+      isSequencePlaying: false,
+      isSequenceReplaying: false,
+    }));
+  };
+
+  const startSequenceDemo = () => {
+    setCurrentPhase('demo');
+    setGameState(prev => ({
+      ...prev,
+      isSequencePlaying: true,
+      currentMoveIndex: 0,
+    }));
+  };
+
+  const handleMoveComplete = (moveIndex: number) => {
+    setGameState(prev => ({
+      ...prev,
+      currentMoveIndex: moveIndex + 1,
+    }));
+  };
+
+  const handleSequenceComplete = (success: boolean) => {
+    if (currentPhase === 'demo') {
+      // Demo completed, now player needs to replay
+      setCurrentPhase('replay');
+      setGameState(prev => ({
+        ...prev,
+        isSequencePlaying: false,
+        currentMoveIndex: 0,
+      }));
+      
+      // Show instructions for replay
+      Alert.alert(
+        'Your Turn!',
+        'Watch the sequence carefully and repeat it exactly. Tap "Start Replay" when you\'re ready.',
+        [{ text: 'Start Replay', onPress: startPlayerReplay }]
+      );
+    } else if (currentPhase === 'replay') {
+      // Player replay completed
+      const accuracy = calculateAccuracy();
+      setSequenceAccuracy(accuracy);
+      
+      if (accuracy >= 0.8) {
+        // Successful replay
+        Vibration.vibrate([0, 100, 50, 100]);
+        Alert.alert(
+          'Great Shot!',
+          `You successfully replicated the sequence with ${Math.round(accuracy * 100)}% accuracy!`,
+          [{ text: 'Continue', onPress: nextPlayer }]
+        );
+      } else {
+        // Failed replay - get a letter
+        const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+        const newLetters = [...currentPlayer.letters, 'HORSE'[currentPlayer.letters.length]];
+        
+        const updatedPlayers = [...gameState.players];
+        updatedPlayers[gameState.currentPlayerIndex] = {
+          ...currentPlayer,
+          letters: newLetters,
+        };
+        
+        setGameState(prev => ({
+          ...prev,
+          players: updatedPlayers,
+        }));
+        
+        Vibration.vibrate([0, 200, 100, 200]);
+        Alert.alert(
+          'Missed!',
+          `You got a letter! Current progress: ${newLetters.join('')}`,
+          [{ text: 'Continue', onPress: nextPlayer }]
+        );
+      }
+    }
+  };
+
+  const startPlayerReplay = () => {
+    setGameState(prev => ({
+      ...prev,
+      isSequenceReplaying: true,
+      currentMoveIndex: 0,
+    }));
+  };
+
+  const calculateAccuracy = (): number => {
+    // Simple accuracy calculation based on timing and sequence completion
+    // In a real implementation, this would track actual player input
+    return Math.random() * 0.4 + 0.6; // Random accuracy between 60-100%
+  };
+
+  const nextPlayer = () => {
+    // Check if current player has lost (spelled HORSE)
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (currentPlayer.letters.length >= 5) {
+      // Game over - current player loses
+      navigation.navigate('Results', { gameState });
+      return;
+    }
+
+    // Move to next player
+    const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+    setGameState(prev => ({
+      ...prev,
+      currentPlayerIndex: nextPlayerIndex,
+      currentSequence: undefined,
+      currentMoveIndex: 0,
+      isSequencePlaying: false,
+      isSequenceReplaying: false,
+    }));
+    
+    setCurrentPhase('waiting');
+    setSequenceAccuracy(0);
+    
+    // Generate new sequence for next player
+    setTimeout(() => {
+      generateNewSequence();
+    }, 1000);
+  };
+
+  const handleBackToMenu = () => {
+    navigation.navigate('MainMenu');
+  };
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
-  const handleShot = () => {
-    if (isShooting) return;
-    
-    setIsShooting(true);
-    Vibration.vibrate(100);
-    
-    // Simulate shot result (random for now)
-    const made = Math.random() > 0.5;
-    
-    if (made) {
-      Vibration.vibrate([0, 100, 50, 100]);
-    } else {
-      Vibration.vibrate([0, 200]);
-    }
-
-    // Animate shot
-    Animated.sequence([
-      Animated.timing(shotAnimation, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(shotAnimation, {
-        toValue: 0,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Update game state
-    setTimeout(() => {
-      const newPlayers = [...gameState.players];
-      const currentPlayerIndex = gameState.currentPlayerIndex;
-      
-      if (made) {
-        // Player made the shot, next player needs to make the same shot
-        newPlayers[currentPlayerIndex].score += 1;
-      } else {
-        // Player missed, give them a letter
-        const letters = ['H', 'O', 'R', 'S', 'E'];
-        const currentLetters = newPlayers[currentPlayerIndex].letters;
-        const nextLetterIndex = currentLetters.length;
-        
-        if (nextLetterIndex < letters.length) {
-          newPlayers[currentPlayerIndex].letters.push(letters[nextLetterIndex]);
-        }
-      }
-
-      // Check if game is over
-      const eliminatedPlayers = newPlayers.filter(player => player.letters.length >= 5);
-      if (eliminatedPlayers.length >= newPlayers.length - 1) {
-        // Game over
-        navigation.navigate('Results', { gameState: { ...gameState, players: newPlayers } });
-        return;
-      }
-
-      // Move to next player
-      const nextPlayerIndex = (currentPlayerIndex + 1) % newPlayers.length;
-      newPlayers[currentPlayerIndex].isCurrentPlayer = false;
-      newPlayers[nextPlayerIndex].isCurrentPlayer = true;
-
-      setGameState({
-        ...gameState,
-        players: newPlayers,
-        currentPlayerIndex: nextPlayerIndex,
-      });
-
-      setIsShooting(false);
-    }, 1500);
-  };
-
-  const shotMeterAnimation = shotAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 100],
-  });
-
   return (
     <SafeAreaView style={styles.container}>
-      <View
-        
-        style={styles.gradient}
-      >
-        <View style={styles.header}>
-          <Text style={styles.roundText}>Round {gameState.roundNumber}</Text>
-          <Text style={styles.playerText}>{currentPlayer.name}'s Turn</Text>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>HORSE Game</Text>
+        <Button title="Back to Menu" onPress={handleBackToMenu} />
+      </View>
 
-        <View style={styles.gameArea}>
-          {/* Court View */}
-          <View style={styles.court}>
-            <View style={styles.hoop}>
-              <View style={styles.rim} />
-            </View>
-            <Animated.View
-              style={[
-                styles.basketball,
-                {
-                  transform: [
-                    {
-                      translateY: shotAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, -200],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-          </View>
+      <View style={styles.gameInfo}>
+        <Text style={styles.playerTurn}>
+          {currentPlayer.name}'s Turn
+        </Text>
+        <Text style={styles.phaseText}>
+          {currentPhase === 'demo' ? 'Watch the sequence...' :
+           currentPhase === 'replay' ? 'Replay the sequence...' :
+           'Ready to start'}
+        </Text>
+      </View>
 
-          {/* Shot Meter */}
-          <View style={styles.shotMeterContainer}>
-            <View style={styles.shotMeter}>
-              <Animated.View
-                style={[
-                  styles.shotMeterFill,
-                  {
-                    width: shotMeterAnimation,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.shotMeterText}>Power: {Math.round(shotMeter)}%</Text>
-          </View>
-        </View>
+      <View style={styles.courtContainer}>
+        <BasketballCourt
+          currentSequence={gameState.currentSequence}
+          currentMoveIndex={gameState.currentMoveIndex}
+          isSequencePlaying={gameState.isSequencePlaying}
+          isSequenceReplaying={gameState.isSequenceReplaying}
+          onSequenceComplete={handleSequenceComplete}
+          onMoveComplete={handleMoveComplete}
+        />
+      </View>
 
-        <View style={styles.playersContainer}>
-          {gameState.players.map((player) => (
-            <HORSEDisplay
-              key={player.id}
-              letters={player.letters}
-              playerName={player.name}
-            />
-          ))}
-        </View>
-
-        <View style={styles.controls}>
+      <View style={styles.controls}>
+        {currentPhase === 'waiting' && gameState.currentSequence && (
           <Button
-            title="Shoot!"
-            onPress={handleShot}
-            disabled={isShooting}
-            style={styles.shootButton}
+            title="Start Sequence Demo"
+            onPress={startSequenceDemo}
+            style={styles.startButton}
           />
-        </View>
+        )}
+        
+        {sequenceAccuracy > 0 && (
+          <View style={styles.accuracyDisplay}>
+            <Text style={styles.accuracyText}>
+              Accuracy: {Math.round(sequenceAccuracy * 100)}%
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.playersContainer}>
+                 {gameState.players.map((player) => (
+           <HORSEDisplay
+             key={player.id}
+             letters={player.letters}
+             playerName={player.name}
+           />
+         ))}
       </View>
     </SafeAreaView>
   );
@@ -181,90 +232,61 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: Colors.backgroundPrimary,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.m,
+    padding: Spacing.m,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  roundText: {
-    ...Typography.h3,
-    color: Colors.textSecondary,
-  },
-  playerText: {
-    ...Typography.h2,
+  title: {
+    ...Typography.h1,
     color: Colors.textPrimary,
   },
-  gameArea: {
-    flex: 1,
-    justifyContent: 'center',
+  gameInfo: {
+    padding: Spacing.m,
     alignItems: 'center',
   },
-  court: {
-    width: screenWidth * 0.8,
-    height: 300,
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: BorderRadius.large,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+  playerTurn: {
+    ...Typography.h2,
+    color: Colors.primaryAccent,
+    marginBottom: Spacing.s,
   },
-  hoop: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 4,
-    borderColor: Colors.primaryAccent,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rim: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: Colors.primaryAccent,
-  },
-  basketball: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.primaryAccent,
-    position: 'absolute',
-    bottom: 50,
-  },
-  shotMeterContainer: {
-    marginTop: Spacing.l,
-    alignItems: 'center',
-  },
-  shotMeter: {
-    width: 200,
-    height: 20,
-    backgroundColor: Colors.border,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  shotMeterFill: {
-    height: '100%',
-    backgroundColor: Colors.primaryAccent,
-    borderRadius: 10,
-  },
-  shotMeterText: {
-    ...Typography.small,
+  phaseText: {
+    ...Typography.body,
     color: Colors.textSecondary,
-    marginTop: Spacing.xs,
   },
-  playersContainer: {
-    paddingHorizontal: Layout.screenMargin,
-    marginBottom: Spacing.l,
+  courtContainer: {
+    flex: 1,
+    margin: Spacing.m,
   },
   controls: {
-    paddingHorizontal: Layout.screenMargin,
-    paddingBottom: Spacing.l,
+    padding: Spacing.m,
+    alignItems: 'center',
   },
-  shootButton: {
-    height: 80,
+  startButton: {
+    backgroundColor: Colors.primaryAccent,
+    minWidth: 200,
   },
-});
+  accuracyDisplay: {
+    marginTop: Spacing.m,
+    padding: Spacing.s,
+    backgroundColor: Colors.backgroundSecondary,
+    borderRadius: BorderRadius.small,
+  },
+  accuracyText: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  playersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: Spacing.m,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+}); 

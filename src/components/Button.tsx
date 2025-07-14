@@ -1,13 +1,15 @@
-import React from 'react';
-import { View, 
+import React from "react";
+
+import {
   TouchableOpacity,
   Text,
   StyleSheet,
   ViewStyle,
   TextStyle,
   ActivityIndicator,
+  View,
 } from 'react-native';
-import { View,  Colors, Typography, Layout, BorderRadius, Shadows } from '../constants/designSystem';
+import { Colors, Typography, Layout, BorderRadius, Shadows, Spacing } from '../constants/designSystem';
 
 interface ButtonProps {
   title: string;
@@ -37,42 +39,12 @@ export const Button: React.FC<ButtonProps> = ({
     style,
   ];
 
-  const textStyleCombined = [
+  const textStyleArray = [
     styles.text,
     isPrimary ? styles.primaryText : styles.secondaryText,
     disabled && styles.disabledText,
     textStyle,
   ];
-
-  const ButtonContent = () => (
-    <>
-      {loading ? (
-        <ActivityIndicator color={isPrimary ? Colors.textPrimary : Colors.primaryAccent} />
-      ) : (
-        <Text style={textStyleCombined}>{title}</Text>
-      )}
-    </>
-  );
-
-  if (isPrimary) {
-    return (
-      <TouchableOpacity
-        style={buttonStyle}
-        onPress={onPress}
-        disabled={disabled || loading}
-        activeOpacity={0.8}
-      >
-        <View
-          
-          style={styles.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          <ButtonContent />
-        </View>
-      </TouchableOpacity>
-    );
-  }
 
   return (
     <TouchableOpacity
@@ -81,36 +53,38 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={disabled || loading}
       activeOpacity={0.8}
     >
-      <ButtonContent />
+      {loading ? (
+        <ActivityIndicator
+          color={isPrimary ? Colors.textPrimary : Colors.primaryAccent}
+          size="small"
+        />
+      ) : (
+        <Text style={textStyleArray}>{title}</Text>
+      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    height: Layout.primaryButtonHeight,
+    height: Layout.secondaryButtonHeight,
     borderRadius: BorderRadius.medium,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Layout.buttonPaddingHorizontal,
-    minWidth: Layout.minTouchTarget * 3,
+    ...Shadows.card,
   },
   primaryButton: {
-    ...Shadows.primaryButton,
+    backgroundColor: Colors.primaryAccent,
   },
   secondaryButton: {
-    borderWidth: 2,
+    backgroundColor: Colors.backgroundSecondary,
+    borderWidth: 1,
     borderColor: Colors.primaryAccent,
-    backgroundColor: 'transparent',
   },
   disabledButton: {
-    opacity: 0.4,
-  },
-  gradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BorderRadius.medium,
+    backgroundColor: Colors.placeholder,
+    borderColor: Colors.placeholder,
   },
   text: {
     ...Typography.h3,
