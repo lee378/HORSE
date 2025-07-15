@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Vibration, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Vibration, Alert, Image } from 'react-native';
+import ScoreboardOverlay from '../components/ScoreboardOverlay';
 import { Button } from '../components/Button';
 import { HORSEDisplay } from '../components/HORSEDisplay';
 import { BasketballCourt } from '../components/BasketballCourt';
@@ -172,30 +173,35 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>HORSE Game</Text>
         <Button title="Back to Menu" onPress={handleBackToMenu} />
       </View>
 
-      <View style={styles.gameInfo}>
-        <Text style={styles.playerTurn}>
-          {currentPlayer.name}'s Turn
-        </Text>
-        <Text style={styles.phaseText}>
-          {currentPhase === 'demo' ? 'Watch the sequence...' :
-           currentPhase === 'replay' ? 'Replay the sequence...' :
-           'Ready to start'}
-        </Text>
+      {/* Pure overlay scoreboard at the top */}
+      <View style={{
+        width: '100%',
+        height: 120,
+        backgroundColor: '#181A1B',
+        borderRadius: 18,
+        marginBottom: 8,
+        marginTop: 8,
+        alignSelf: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 4,
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        <ScoreboardOverlay
+          playerNames={gameState.players.map(p => p.name)}
+          playerLetters={gameState.players.map(p => p.letters)}
+        />
       </View>
 
       <View style={styles.courtContainer}>
-        <BasketballCourt
-          currentSequence={gameState.currentSequence}
-          currentMoveIndex={gameState.currentMoveIndex}
-          isSequencePlaying={gameState.isSequencePlaying}
-          isSequenceReplaying={gameState.isSequenceReplaying}
-          onSequenceComplete={handleSequenceComplete}
-          onMoveComplete={handleMoveComplete}
-        />
+        <BasketballCourt />
       </View>
 
       <View style={styles.controls}>
@@ -206,7 +212,6 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
             style={styles.startButton}
           />
         )}
-        
         {sequenceAccuracy > 0 && (
           <View style={styles.accuracyDisplay}>
             <Text style={styles.accuracyText}>
@@ -214,16 +219,6 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
             </Text>
           </View>
         )}
-      </View>
-
-      <View style={styles.playersContainer}>
-                 {gameState.players.map((player) => (
-           <HORSEDisplay
-             key={player.id}
-             letters={player.letters}
-             playerName={player.name}
-           />
-         ))}
       </View>
     </SafeAreaView>
   );
