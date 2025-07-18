@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Vibration, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Vibration, Alert, Image, TouchableOpacity } from 'react-native';
+import { EngineView } from '@babylonjs/react-native';
+import { ArcRotateCamera } from '@babylonjs/core';
 import ScoreboardOverlay from '../components/ScoreboardOverlay';
-import { Button } from '../components/Button';
+
 import { HORSEDisplay } from '../components/HORSEDisplay';
-import { BasketballCourt } from '../components/BasketballCourt';
+import BabylonCourt from '../components/BabylonCourt';
+
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/designSystem';
 import { GameState, GameSequence } from '../types';
 import { GAME_SEQUENCES, generateRandomSequence } from '../constants/basketballMoves';
@@ -27,6 +30,7 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
   const [currentPhase, setCurrentPhase] = useState<'demo' | 'replay' | 'waiting'>('waiting');
   const [sequenceAccuracy, setSequenceAccuracy] = useState<number>(0);
   const [playerInput, setPlayerInput] = useState<GameSequence | null>(null);
+  const [camera, setCamera] = useState<ArcRotateCamera | null>(null);
 
   // Generate a new sequence when the game starts
   useEffect(() => {
@@ -111,7 +115,7 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
           players: updatedPlayers,
         }));
         
-        Vibration.vibrate([0, 200, 100, 200]);
+Vibration.vibrate([0, 200, 100, 200]);
         Alert.alert(
           'Missed!',
           `You got a letter! Current progress: ${newLetters.join('')}`,
@@ -138,26 +142,37 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
   const nextPlayer = () => {
     // Check if current player has lost (spelled HORSE)
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    let updatedPlayers = [...gameState.players];
     if (currentPlayer.letters.length >= 5) {
-      // Game over - current player loses
-      navigation.navigate('Results', { gameState });
+      // Mark player as eliminated
+      updatedPlayers[gameState.currentPlayerIndex] = {
+        ...currentPlayer,
+        eliminated: true,
+      };
+    }
+    // Check for game over (only one player not eliminated)
+    const activePlayers = updatedPlayers.filter(p => !p.eliminated);
+    if (activePlayers.length === 1) {
+      // Game over - only one player remains
+      navigation.navigate('Results', { gameState: { ...gameState, players: updatedPlayers } });
       return;
     }
-
-    // Move to next player
-    const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+    // Move to next non-eliminated player
+    let nextPlayerIndex = gameState.currentPlayerIndex;
+    do {
+      nextPlayerIndex = (nextPlayerIndex + 1) % updatedPlayers.length;
+    } while (updatedPlayers[nextPlayerIndex].eliminated);
     setGameState(prev => ({
       ...prev,
+      players: updatedPlayers,
       currentPlayerIndex: nextPlayerIndex,
       currentSequence: undefined,
       currentMoveIndex: 0,
       isSequencePlaying: false,
       isSequenceReplaying: false,
     }));
-    
     setCurrentPhase('waiting');
     setSequenceAccuracy(0);
-    
     // Generate new sequence for next player
     setTimeout(() => {
       generateNewSequence();
@@ -165,61 +180,39 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
   };
 
   const handleBackToMenu = () => {
-    navigation.navigate('MainMenu');
+    navigation.navigate('GameSetup', { gameState });
   };
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Button title="Back to Menu" onPress={handleBackToMenu} />
-      </View>
-
-      {/* Pure overlay scoreboard at the top */}
-      <View style={{
-        width: '100%',
-        height: 120,
-        backgroundColor: '#181A1B',
-        borderRadius: 18,
-        marginBottom: 8,
-        marginTop: 8,
-        alignSelf: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
-        elevation: 4,
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
-        <ScoreboardOverlay
-          playerNames={gameState.players.map(p => p.name)}
-          playerLetters={gameState.players.map(p => p.letters)}
-        />
-      </View>
-
-      <View style={styles.courtContainer}>
-        <BasketballCourt />
-      </View>
-
-      <View style={styles.controls}>
-        {currentPhase === 'waiting' && gameState.currentSequence && (
-          <Button
-            title="Start Sequence Demo"
-            onPress={startSequenceDemo}
-            style={styles.startButton}
-          />
-        )}
-        {sequenceAccuracy > 0 && (
-          <View style={styles.accuracyDisplay}>
-            <Text style={styles.accuracyText}>
-              Accuracy: {Math.round(sequenceAccuracy * 100)}%
-            </Text>
-          </View>
-        )}
-      </View>
+      
+      <BabylonCourt
+        currentSequence={gameState.currentSequence}
+        currentMoveIndex={gameState.currentMoveIndex}
+        isSequencePlaying={gameState.isSequencePlaying}
+        isSequenceReplaying={gameState.isSequenceReplaying}
+        onMoveComplete={handleMoveComplete}
+        onSequenceComplete={handleSequenceComplete}
+        camera={camera}
+        onCameraInitialized={setCamera}
+      />
+      <ScoreboardOverlay
+        playerNames={gameState.players.map(p => p.name)}
+        playerLetters={gameState.players.map(p => p.letters)}
+        activePlayerIndex={gameState.currentPlayerIndex}
+        eliminatedPlayers={gameState.players.map(p => !!p.eliminated)}
+        onBack={handleBackToMenu}
+      />
+      {/* Floating back-to-menu button */}
+      <TouchableOpacity
+        style={styles.fabBackButton}
+        onPress={handleBackToMenu}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.fabBackButtonText}>←</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -229,59 +222,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.backgroundPrimary,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  fabBackButton: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(30,30,30,0.7)',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.m,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 1000,
   },
-  title: {
-    ...Typography.h1,
-    color: Colors.textPrimary,
-  },
-  gameInfo: {
-    padding: Spacing.m,
-    alignItems: 'center',
-  },
-  playerTurn: {
-    ...Typography.h2,
-    color: Colors.primaryAccent,
-    marginBottom: Spacing.s,
-  },
-  phaseText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  courtContainer: {
-    flex: 1,
-    margin: Spacing.m,
-  },
-  controls: {
-    padding: Spacing.m,
-    alignItems: 'center',
-  },
-  startButton: {
-    backgroundColor: Colors.primaryAccent,
-    minWidth: 200,
-  },
-  accuracyDisplay: {
-    marginTop: Spacing.m,
-    padding: Spacing.s,
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: BorderRadius.small,
-  },
-  accuracyText: {
-    ...Typography.body,
-    color: Colors.textPrimary,
+  fabBackButtonText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 'bold',
     textAlign: 'center',
+    marginTop: -2,
   },
-  playersContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: Spacing.m,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-}); 
+});

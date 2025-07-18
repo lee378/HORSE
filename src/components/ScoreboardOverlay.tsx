@@ -1,9 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ScoreboardOverlayProps {
-  playerNames: string[]; // [player1, player2]
-  playerLetters: string[][]; // [['H','O'], ['H','O','R']]
+  playerNames: string[];
+  playerLetters: string[][];
+  activePlayerIndex: number;
+  onBack: () => void;
+  eliminatedPlayers?: boolean[];
 }
 
 const HORSE = ['H', 'O', 'R', 'S', 'E'];
@@ -81,110 +85,64 @@ const getSmallMode = (name: string) => {
   return name.length > 10 || normalRowWidth > MAX_ROW_WIDTH;
 };
 
-const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, playerLetters }) => {
-  // Determine if either player needs small mode
-  const needsSmall = playerNames.some(name => getSmallMode(name));
+const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, playerLetters, activePlayerIndex, onBack, eliminatedPlayers }) => {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.overlayContainer}>
-      <Text style={{color: 'yellow', fontSize: 14}}>
-        playerNames: {JSON.stringify(playerNames)}
-        playerLetters: {JSON.stringify(playerLetters)}
-      </Text>
-      <Text style={{color: 'red', fontSize: 32}}>VISIBLE TEST</Text>
-      <View style={{ flexDirection: 'column', width: '100%' }}>
-        {/* Player 1 Row */}
-        <View style={[styles.row, { marginBottom: 12 }]}> 
-          {playerNames[0] && needsSmall ? (
-            <View style={styles.nameAboveRow}><Text style={[styles.playerName, styles.playerNameSmall]} numberOfLines={1} ellipsizeMode="tail">{playerNames[0].length > 16 ? playerNames[0].slice(0, 15) + '…' : playerNames[0]}</Text></View>
-          ) : null}
-          <View style={[styles.lettersRow, playerNames[0] && needsSmall ? { marginTop: 2 } : {}]}>
-            {HORSE.map((letter, i) => {
-              const small = needsSmall;
-              const { LED_SIZE, LED_SPACING, LETTER_WIDTH, LETTER_HEIGHT } = getLetterDims(small);
-              return (
-                <View key={letter + i} style={{ width: LETTER_WIDTH, height: LETTER_HEIGHT, marginHorizontal: 0 }}>
-                  {DOT_MATRIX[letter].map((row, rowIdx) => (
-                    <View key={rowIdx} style={{ flexDirection: 'row', justifyContent: 'center', height: LED_SIZE + 1 }}>
-                      {row.map((on, colIdx) => (
-                        <View
-                          key={colIdx}
-                          style={[
-                            styles.led,
-                            small ? styles.ledSmall : null,
-                            playerLetters[0] && playerLetters[0].includes(letter) && on
-                              ? styles.ledOn
-                              : on
-                              ? styles.ledOff
-                              : styles.ledEmpty,
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              );
-            })}
+    <View style={[styles.overlayContainer, { paddingTop: insets.top }]}>  
+      {playerNames.map((name, idx) => {
+        const isActive = idx === activePlayerIndex;
+        const letters = playerLetters[idx] || [];
+        const isEliminated = eliminatedPlayers ? eliminatedPlayers[idx] : false;
+        return (
+          <View key={name} style={[styles.row, isActive && styles.activeRow, isEliminated && styles.eliminatedRow]}>  
+            <Text style={[styles.playerName, isActive && styles.activePlayerName, isEliminated && styles.eliminatedText]}>{name}</Text>
+            <View style={styles.lettersRow}>
+              {[0,1,2,3,4].map(i => (
+                <Text key={i} style={[styles.letter, letters[i] ? styles.letterOn : styles.letterOff, isEliminated && styles.eliminatedText]}>
+                  {HORSE[i]}
+                </Text>
+              ))}
+            </View>
           </View>
-        </View>
-        {/* Player 2 Row */}
-        <View style={styles.row}> 
-          {playerNames[1] && needsSmall ? (
-            <View style={styles.nameAboveRow}><Text style={[styles.playerName, styles.playerNameSmall]} numberOfLines={1} ellipsizeMode="tail">{playerNames[1].length > 16 ? playerNames[1].slice(0, 15) + '…' : playerNames[1]}</Text></View>
-          ) : null}
-          <View style={[styles.lettersRow, playerNames[1] && needsSmall ? { marginTop: 2 } : {}]}>
-            {HORSE.map((letter, i) => {
-              const small = needsSmall;
-              const { LED_SIZE, LED_SPACING, LETTER_WIDTH, LETTER_HEIGHT } = getLetterDims(small);
-              return (
-                <View key={letter + i} style={{ width: LETTER_WIDTH, height: LETTER_HEIGHT, marginHorizontal: 0 }}>
-                  {DOT_MATRIX[letter].map((row, rowIdx) => (
-                    <View key={rowIdx} style={{ flexDirection: 'row', justifyContent: 'center', height: LED_SIZE + 1 }}>
-                      {row.map((on, colIdx) => (
-                        <View
-                          key={colIdx}
-                          style={[
-                            styles.led,
-                            small ? styles.ledSmall : null,
-                            playerLetters[1] && playerLetters[1].includes(letter) && on
-                              ? styles.ledOn
-                              : on
-                              ? styles.ledOff
-                              : styles.ledEmpty,
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      </View>
+        );
+      })}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   overlayContainer: {
-    // position: 'absolute',
-    left: 0,
+    position: 'absolute',
     top: 0,
-    width: '100%',
-    height: 'auto',
-    minHeight: 220, // TEMP: ensure both rows are visible
-    zIndex: 10,
-    // pointerEvents: 'none',
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 0, 0, 1)', // TEMPORARY: Solid red for maximum visibility
+    zIndex: 9999, // Very high zIndex
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    alignItems: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   row: {
-    position: 'relative',
-    left: 0,
-    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    // paddingHorizontal: 32, // Remove padding
-    overflow: 'visible',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   playerName: {
     fontSize: 18,
@@ -195,27 +153,17 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
     marginRight: 8,
-    minWidth: 80,
     textAlign: 'left',
-    fontFamily: 'Menlo', // Monospace/digital look
+    fontFamily: 'Menlo',
   },
   playerNameSmall: {
     fontSize: 14,
     marginRight: 6,
-    minWidth: 60,
-  },
-  nameAboveRow: {
-    width: '100%',
-    alignItems: 'flex-start',
-    marginBottom: 0,
-    marginLeft: 0,
   },
   lettersRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 0,
-    backgroundColor: 'rgba(0,255,0,0.1)', // TEMP: for debugging
-    minHeight: 32, // TEMP: ensure enough space for letters
+    justifyContent: 'flex-end',
   },
   led: {
     width: BASE_LED_SIZE,
@@ -243,6 +191,41 @@ const styles = StyleSheet.create({
     width: SMALL_LED_SIZE,
     height: SMALL_LED_SIZE,
     borderRadius: SMALL_LED_SIZE / 2,
+  },
+  activeRow: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+  },
+  activePlayerName: {
+    color: '#FFD700',
+    fontWeight: 'bold',
+    textShadowColor: '#222',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  letter: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginHorizontal: 2,
+    letterSpacing: 2,
+  },
+  letterOn: {
+    color: '#FF1744', // Neon red
+    textShadowColor: '#FF1744',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12, // Stronger glow
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  letterOff: {
+    color: '#EAF6FF',
+    opacity: 0.3,
+  },
+  eliminatedRow: {
+    opacity: 0.4,
+  },
+  eliminatedText: {
+    opacity: 0.4,
   },
 });
 

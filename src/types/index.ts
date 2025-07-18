@@ -5,6 +5,7 @@ export interface Player {
   name: string;
   avatar?: string;
   letters: string[];
+  eliminated?: boolean;
   score: number;
   isCurrentPlayer: boolean;
   position: {

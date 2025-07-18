@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'linear-gradient(90deg, #ffb347 0%, #ff7f50 100%)', // fallback for iOS, will be replaced by SVG/texture
+    backgroundColor: '#ffb347', // fallback for iOS, will be replaced by SVG/texture
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 18,
