@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
+  Image,
 } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -20,8 +21,8 @@ interface GameSetupProps {
 
 export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
   const [players, setPlayers] = useState([
-    { id: '1', name: 'Player 1', letters: [], position: { x: 200, y: 500 } },
-    { id: '2', name: 'Player 2', letters: [], position: { x: 200, y: 500 } },
+    { id: '1', name: 'Player 1', letters: [], position: { x: 200, y: 500 }, avatar: require('../assets/avatar1.png') },
+    { id: '2', name: 'Player 2', letters: [], position: { x: 200, y: 500 }, avatar: require('../assets/avatar2.png') },
   ]);
   const [gameSettings, setGameSettings] = useState<GameSettings>({
     numberOfPlayers: 2,
@@ -32,6 +33,15 @@ export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
     sequenceLength: 3,
     showHints: true,
   });
+  const [gameWordMode, setGameWordMode] = useState<'HORSE' | 'PIG' | 'CUSTOM'>('HORSE');
+  const [customGameWord, setCustomGameWord] = useState('');
+
+  const avatarImages = [
+    require('../assets/avatar1.png'),
+    require('../assets/avatar2.png'),
+    require('../assets/avatar3.png'),
+    require('../assets/avatar4.png'),
+  ];
 
   const addPlayer = () => {
     if (players.length < 4) {
@@ -41,7 +51,8 @@ export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
           id: String(players.length + 1), 
           name: `Player ${players.length + 1}`, 
           letters: [],
-          position: { x: 200, y: 500 }
+          position: { x: 200, y: 500 },
+          avatar: avatarImages[players.length % avatarImages.length],
         },
       ]);
       setGameSettings(prev => ({ ...prev, numberOfPlayers: players.length + 1 }));
@@ -69,6 +80,9 @@ export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
   };
 
   const startGame = () => {
+    const word = gameWordMode === 'CUSTOM' && customGameWord.trim().length > 0
+      ? customGameWord.trim().toUpperCase()
+      : gameWordMode;
     const gameState = {
       players: players.map(player => ({
         ...player,
@@ -85,6 +99,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
       isSequencePlaying: false,
       isSequenceReplaying: false,
       currentMoveIndex: 0,
+      gameWord: word,
     };
     
     gameState.players[0].isCurrentPlayer = true;
@@ -117,6 +132,21 @@ export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
                     <Text style={styles.removeButtonText}>×</Text>
                   </TouchableOpacity>
                 )}
+                {/* Avatar Picker */}
+                <View style={styles.avatarPickerRow}>
+                  {avatarImages.map((avatarPath, aIdx) => {
+                    const isSelected = player.avatar === avatarPath;
+                    return (
+                      <TouchableOpacity
+                        key={aIdx}
+                        onPress={() => setPlayers(players.map(p => p.id === player.id ? { ...p, avatar: avatarPath } : p))}
+                        style={[styles.avatarOption, isSelected && styles.avatarSelected]}
+                      >
+                        <Image source={avatarPath} style={styles.avatarImage} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             ))}
             {players.length < 4 && (
@@ -209,6 +239,34 @@ export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
           </Card>
 
           <Card style={styles.settingsCard}>
+            <Text style={styles.sectionTitle}>Game Word</Text>
+            <View style={styles.optionsContainer}>
+              {['HORSE', 'PIG', 'CUSTOM'].map(mode => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[styles.optionButton, gameWordMode === mode && styles.optionButtonActive]}
+                  onPress={() => setGameWordMode(mode as 'HORSE' | 'PIG' | 'CUSTOM')}
+                >
+                  <Text style={[styles.optionButtonText, gameWordMode === mode && styles.optionButtonTextActive]}>
+                    {mode}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {gameWordMode === 'CUSTOM' && (
+              <TextInput
+                style={styles.playerInput}
+                value={customGameWord}
+                onChangeText={setCustomGameWord}
+                placeholder="Enter custom word"
+                placeholderTextColor={Colors.placeholder}
+                autoCapitalize="characters"
+                maxLength={8}
+              />
+            )}
+          </Card>
+
+          <Card style={styles.settingsCard}>
             <Text style={styles.sectionTitle}>Options</Text>
             
             <View style={styles.switchRow}>
@@ -281,8 +339,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.m,
   },
   playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column', // Changed to column for avatar picker
+    alignItems: 'flex-start', // Align items to the start
     marginBottom: Spacing.s,
   },
   playerInput: {
@@ -294,6 +352,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     borderWidth: 1,
     borderColor: Colors.border,
+    marginBottom: Spacing.s, // Add margin below name input
   },
   removeButton: {
     width: 32,
@@ -353,5 +412,26 @@ const styles = StyleSheet.create({
   },
   startButton: {
     marginTop: Spacing.xl,
+  },
+  avatarPickerRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  avatarOption: {
+    marginRight: 8,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    padding: 2,
+  },
+  avatarSelected: {
+    borderColor: Colors.primaryAccent,
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#222',
   },
 });

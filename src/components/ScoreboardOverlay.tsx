@@ -1,13 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Animated, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ScoreboardOverlayProps {
   playerNames: string[];
   playerLetters: string[][];
+  playerAvatars: string[];
   activePlayerIndex: number;
   onBack: () => void;
   eliminatedPlayers?: boolean[];
+  gameWord: string;
+  justEarnedLetters?: number[][]; // Array of arrays of indices for just-earned letters per player
 }
 
 const HORSE = ['H', 'O', 'R', 'S', 'E'];
@@ -85,8 +88,43 @@ const getSmallMode = (name: string) => {
   return name.length > 10 || normalRowWidth > MAX_ROW_WIDTH;
 };
 
-const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, playerLetters, activePlayerIndex, onBack, eliminatedPlayers }) => {
+const usePulse = (isActive: boolean) => {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (isActive) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1.08, duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+          Animated.timing(pulse, { toValue: 1, duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        ])
+      ).start();
+    } else {
+      pulse.setValue(1);
+    }
+  }, [isActive]);
+  return pulse;
+};
+
+const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, playerLetters, playerAvatars, activePlayerIndex, onBack, eliminatedPlayers, gameWord, justEarnedLetters }) => {
   const insets = useSafeAreaInsets();
+
+  // Animated values for each player's letters
+  const animRefs = useRef(playerNames.map(() => Array(gameWord.length).fill(null).map(() => new Animated.Value(0))));
+
+  useEffect(() => {
+    if (justEarnedLetters) {
+      justEarnedLetters.forEach((indices, pIdx) => {
+        indices.forEach(i => {
+          if (animRefs.current[pIdx] && animRefs.current[pIdx][i]) {
+            animRefs.current[pIdx][i].setValue(1);
+            Animated.sequence([
+              Animated.timing(animRefs.current[pIdx][i], { toValue: 0, duration: 600, useNativeDriver: false })
+            ]).start();
+          }
+        });
+      });
+    }
+  }, [justEarnedLetters, gameWord]);
 
   return (
     <View style={[styles.overlayContainer, { paddingTop: insets.top }]}>  
@@ -94,17 +132,51 @@ const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, play
         const isActive = idx === activePlayerIndex;
         const letters = playerLetters[idx] || [];
         const isEliminated = eliminatedPlayers ? eliminatedPlayers[idx] : false;
+        const pulse = usePulse(isActive);
         return (
-          <View key={name} style={[styles.row, isActive && styles.activeRow, isEliminated && styles.eliminatedRow]}>  
+          <Animated.View
+            key={name}
+            style={[
+              styles.row,
+              isActive && styles.activeRow,
+              isEliminated && styles.eliminatedRow,
+              isActive && { transform: [{ scale: pulse }] },
+              styles.rowShadow,
+            ]}
+          >
+            {/* Current turn indicator */}
+            {isActive && <Text style={styles.turnArrow}>▶</Text>}
+            <Image source={playerAvatars[idx]} style={styles.avatar} />
             <Text style={[styles.playerName, isActive && styles.activePlayerName, isEliminated && styles.eliminatedText]}>{name}</Text>
             <View style={styles.lettersRow}>
-              {[0,1,2,3,4].map(i => (
-                <Text key={i} style={[styles.letter, letters[i] ? styles.letterOn : styles.letterOff, isEliminated && styles.eliminatedText]}>
-                  {HORSE[i]}
-                </Text>
-              ))}
+              {Array.from(gameWord).map((char, i) => {
+                const earned = !!letters[i];
+                const anim = animRefs.current[idx][i];
+                const flashColor = anim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [earned ? '#FF1744' : '#EAF6FF', '#FFD600']
+                });
+                // Animate scale for earned letter
+                const scale = anim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.3],
+                });
+                return (
+                  <Animated.Text
+                    key={i}
+                    style={[
+                      styles.letter,
+                      earned ? styles.letterOn : styles.letterOff,
+                      isEliminated && styles.eliminatedText,
+                      { color: flashColor, transform: [{ scale }] },
+                    ]}
+                  >
+                    {char}
+                  </Animated.Text>
+                );
+              })}
             </View>
-          </View>
+          </Animated.View>
         );
       })}
     </View>
@@ -117,11 +189,18 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 0, 0, 1)', // TEMPORARY: Solid red for maximum visibility
-    zIndex: 9999, // Very high zIndex
+    backgroundColor: 'linear-gradient(180deg, #222 80%, #111 100%)',
+    borderBottomWidth: 3,
+    borderBottomColor: '#FFD700',
+    zIndex: 9999,
     paddingHorizontal: 10,
     paddingBottom: 10,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   backButton: {
     position: 'absolute',
@@ -226,6 +305,31 @@ const styles = StyleSheet.create({
   },
   eliminatedText: {
     opacity: 0.4,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+    backgroundColor: '#222',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  rowShadow: {
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  turnArrow: {
+    fontSize: 22,
+    color: '#FFD700',
+    marginRight: 6,
+    fontWeight: 'bold',
+    textShadowColor: '#222',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

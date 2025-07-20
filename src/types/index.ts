@@ -1,10 +1,9 @@
 // Game Types
 
 export interface Player {
-  id: string;
   name: string;
-  avatar?: string;
   letters: string[];
+  avatar: string; // require('../assets/avatar1.png') or URI
   eliminated?: boolean;
   score: number;
   isCurrentPlayer: boolean;
@@ -17,7 +16,7 @@ export interface Player {
 export interface BasketballMove {
   id: string;
   name: string;
-  type: 'dribble' | 'shoot' | 'pass' | 'crossover' | 'spin' | 'jump';
+  type: 'dribble' | 'shoot' | 'pass' | 'crossover' | 'spin' | 'jump' | 'layup' | 'step-back' | 'euro-step' | 'drive' | 'dunk' | 'reverse-dunk' | 'windmill-dunk' | 'tomahawk-dunk' | 'between-legs-dunk' | 'alley-oop-dunk';
   duration: number;
   difficulty: 'easy' | 'medium' | 'hard';
   animation: {
@@ -48,6 +47,7 @@ export interface GameState {
   isSequenceReplaying: boolean;
   lastSuccessfulSequence?: GameSequence;
   currentMoveIndex: number;
+  gameWord?: string;
 }
 
 export interface ShotResult {
@@ -78,5 +78,6 @@ export type NavigationParamList = {
   Gameplay: { gameState: GameState };
   Results: { gameState: GameState };
   Settings: undefined;
+  HowToPlay: undefined;
   Leaderboards: undefined;
 };

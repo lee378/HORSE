@@ -10,6 +10,8 @@ import { GameSetup } from './src/screens/GameSetup';
 import { Gameplay } from './src/screens/Gameplay';
 import { Results } from './src/screens/Results';
 import { Settings } from './src/screens/Settings';
+import { HowToPlay } from './src/screens/HowToPlay';
+import { Leaderboards } from './src/screens/Leaderboards';
 
 // Import types
 import { NavigationParamList } from './src/types';
@@ -44,6 +46,8 @@ export default function App() {
           <Stack.Screen name="Gameplay" component={Gameplay} />
           <Stack.Screen name="Results" component={Results} />
           <Stack.Screen name="Settings" component={Settings} />
+          <Stack.Screen name="HowToPlay" component={HowToPlay} />
+          <Stack.Screen name="Leaderboards" component={Leaderboards} />
         </Stack.Navigator>
         <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
       </NavigationContainer>
