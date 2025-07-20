@@ -22,7 +22,7 @@ interface GameSetupProps {
 export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
   const [players, setPlayers] = useState([
     { id: '1', name: 'Player 1', letters: [], position: { x: 200, y: 500 }, avatar: require('../assets/avatar1.png') },
-    { id: '2', name: 'Player 2', letters: [], position: { x: 200, y: 500 }, avatar: require('../assets/avatar2.png') },
+    { id: '2', name: 'AI Easy', letters: [], position: { x: 200, y: 500 }, avatar: require('../assets/avatar2.png') },
   ]);
   const [gameSettings, setGameSettings] = useState<GameSettings>({
     numberOfPlayers: 2,
@@ -132,6 +132,79 @@ export const GameSetup: React.FC<GameSetupProps> = ({ navigation }) => {
                     <Text style={styles.removeButtonText}>×</Text>
                   </TouchableOpacity>
                 )}
+                
+                {/* Player Type Selector */}
+                <View style={styles.playerTypeContainer}>
+                  <Text style={styles.playerTypeLabel}>Type:</Text>
+                  <View style={styles.playerTypeOptions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.playerTypeButton,
+                        !player.name.toLowerCase().includes('ai') && styles.playerTypeButtonActive
+                      ]}
+                      onPress={() => {
+                        const newName = player.name.replace(/ai\s*(easy|medium|hard)?/i, '').trim() || `Player ${player.id}`;
+                        updatePlayerName(player.id, newName);
+                      }}
+                    >
+                      <Text style={[
+                        styles.playerTypeButtonText,
+                        !player.name.toLowerCase().includes('ai') && styles.playerTypeButtonTextActive
+                      ]}>
+                        Human
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.playerTypeButton,
+                        player.name.toLowerCase().includes('ai') && styles.playerTypeButtonActive
+                      ]}
+                      onPress={() => {
+                        const difficulty = player.name.toLowerCase().includes('hard') ? 'Hard' : 
+                                        player.name.toLowerCase().includes('medium') ? 'Medium' : 'Easy';
+                        const newName = `AI ${difficulty}`;
+                        updatePlayerName(player.id, newName);
+                      }}
+                    >
+                      <Text style={[
+                        styles.playerTypeButtonText,
+                        player.name.toLowerCase().includes('ai') && styles.playerTypeButtonTextActive
+                      ]}>
+                        AI
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* AI Difficulty Selector (only show for AI players) */}
+                  {player.name.toLowerCase().includes('ai') && (
+                    <View style={styles.aiDifficultyContainer}>
+                      <Text style={styles.aiDifficultyLabel}>Difficulty:</Text>
+                      <View style={styles.aiDifficultyOptions}>
+                        {['Easy', 'Medium', 'Hard'].map((difficulty) => (
+                          <TouchableOpacity
+                            key={difficulty}
+                            style={[
+                              styles.aiDifficultyButton,
+                              player.name.toLowerCase().includes(difficulty.toLowerCase()) && styles.aiDifficultyButtonActive
+                            ]}
+                            onPress={() => {
+                              const newName = `AI ${difficulty}`;
+                              updatePlayerName(player.id, newName);
+                            }}
+                          >
+                            <Text style={[
+                              styles.aiDifficultyButtonText,
+                              player.name.toLowerCase().includes(difficulty.toLowerCase()) && styles.aiDifficultyButtonTextActive
+                            ]}>
+                              {difficulty}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </View>
+                
                 {/* Avatar Picker */}
                 <View style={styles.avatarPickerRow}>
                   {avatarImages.map((avatarPath, aIdx) => {
@@ -433,5 +506,74 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#222',
+  },
+  playerTypeContainer: {
+    marginBottom: Spacing.s,
+  },
+  playerTypeLabel: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  playerTypeOptions: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  playerTypeButton: {
+    flex: 1,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.backgroundPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  playerTypeButtonActive: {
+    backgroundColor: Colors.primaryAccent,
+    borderColor: Colors.primaryAccent,
+  },
+  playerTypeButtonText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  playerTypeButtonTextActive: {
+    color: Colors.textPrimary,
+  },
+  aiDifficultyContainer: {
+    marginTop: Spacing.xs,
+  },
+  aiDifficultyLabel: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
+    fontSize: 12,
+  },
+  aiDifficultyOptions: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  aiDifficultyButton: {
+    flex: 1,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.backgroundPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  aiDifficultyButtonActive: {
+    backgroundColor: Colors.primaryAccent,
+    borderColor: Colors.primaryAccent,
+  },
+  aiDifficultyButtonText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    fontSize: 10,
+  },
+  aiDifficultyButtonTextActive: {
+    color: Colors.textPrimary,
   },
 });

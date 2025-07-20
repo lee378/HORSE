@@ -117,9 +117,10 @@ const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, play
         indices.forEach(i => {
           if (animRefs.current[pIdx] && animRefs.current[pIdx][i]) {
             animRefs.current[pIdx][i].setValue(1);
-            Animated.sequence([
-              Animated.timing(animRefs.current[pIdx][i], { toValue: 0, duration: 600, useNativeDriver: false })
-            ]).start();
+            // Keep the highlight instead of fading it out
+            // Animated.sequence([
+            //   Animated.timing(animRefs.current[pIdx][i], { toValue: 0, duration: 600, useNativeDriver: false })
+            // ]).start();
           }
         });
       });
@@ -152,15 +153,16 @@ const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, play
               {Array.from(gameWord).map((char, i) => {
                 const earned = !!letters[i];
                 const anim = animRefs.current[idx][i];
-                const flashColor = anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [earned ? '#FF1744' : '#EAF6FF', '#FFD600']
-                });
+                
+                // For earned letters, always use the highlight color
+                const letterColor = earned ? '#FF1744' : '#EAF6FF';
+                
                 // Animate scale for earned letter
                 const scale = anim.interpolate({
                   inputRange: [0, 1],
                   outputRange: [1, 1.3],
                 });
+                
                 return (
                   <Animated.Text
                     key={i}
@@ -168,7 +170,7 @@ const ScoreboardOverlay: React.FC<ScoreboardOverlayProps> = ({ playerNames, play
                       styles.letter,
                       earned ? styles.letterOn : styles.letterOff,
                       isEliminated && styles.eliminatedText,
-                      { color: flashColor, transform: [{ scale }] },
+                      { color: letterColor, transform: [{ scale }] },
                     ]}
                   >
                     {char}
@@ -189,7 +191,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'linear-gradient(180deg, #222 80%, #111 100%)',
+    backgroundColor: '#222',
     borderBottomWidth: 3,
     borderBottomColor: '#FFD700',
     zIndex: 9999,

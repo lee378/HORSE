@@ -17,6 +17,25 @@ interface GameplayProps {
   route: { params: { gameState: GameState } };
 }
 
+// AI difficulty levels and their characteristics
+const AI_DIFFICULTY = {
+  easy: {
+    accuracyRange: [0.6, 0.8],
+    thinkingTime: [2000, 4000],
+    successRate: 0.7,
+  },
+  medium: {
+    accuracyRange: [0.75, 0.9],
+    thinkingTime: [1500, 3000],
+    successRate: 0.8,
+  },
+  hard: {
+    accuracyRange: [0.85, 0.95],
+    thinkingTime: [1000, 2000],
+    successRate: 0.9,
+  },
+};
+
 export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
   const { gameState: initialGameState } = route.params;
   const [gameState, setGameState] = useState<GameState>({
@@ -33,7 +52,26 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
   const [playerInput, setPlayerInput] = useState<GameSequence | null>(null);
   const [camera, setCamera] = useState<ArcRotateCamera | null>(null);
   const [justEarnedLetters, setJustEarnedLetters] = useState<number[][]>([]);
+  const [isAITurn, setIsAITurn] = useState<boolean>(false);
+  const [aiThinking, setAiThinking] = useState<boolean>(false);
   const courtRef = useRef<BabylonCourtRef>(null);
+
+  // Check if current player is AI (name contains "AI" or "Computer")
+  const isCurrentPlayerAI = () => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    return currentPlayer.name.toLowerCase().includes('ai') || 
+           currentPlayer.name.toLowerCase().includes('computer') ||
+           currentPlayer.name.toLowerCase().includes('bot');
+  };
+
+  // Get AI difficulty based on player name or default to medium
+  const getAIDifficulty = () => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const name = currentPlayer.name.toLowerCase();
+    if (name.includes('easy')) return 'easy';
+    if (name.includes('hard')) return 'hard';
+    return 'medium'; // default
+  };
 
   // Generate a new sequence when the game starts
   useEffect(() => {
@@ -41,6 +79,168 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
       generateNewSequence();
     }
   }, []);
+
+  // Handle AI turn
+  useEffect(() => {
+    if (isCurrentPlayerAI() && currentPhase === 'waiting' && gameState.currentSequence) {
+      handleAITurn();
+    }
+  }, [currentPhase, gameState.currentSequence]);
+
+  const handleAITurn = () => {
+    setIsAITurn(true);
+    setAiThinking(true);
+    
+    const difficulty = getAIDifficulty();
+    const aiConfig = AI_DIFFICULTY[difficulty];
+    const thinkingTime = Math.random() * (aiConfig.thinkingTime[1] - aiConfig.thinkingTime[0]) + aiConfig.thinkingTime[0];
+    
+    // AI "thinks" for a random time
+    setTimeout(() => {
+      setAiThinking(false);
+      startAISequence();
+    }, thinkingTime);
+  };
+
+  const startAISequence = () => {
+    setCurrentPhase('demo');
+    setGameState(prev => ({
+      ...prev,
+      isSequencePlaying: true,
+      currentMoveIndex: 0,
+    }));
+    
+    // AI plays the sequence
+    setTimeout(() => {
+      playAISequence();
+    }, 500);
+  };
+
+  const playAISequence = async () => {
+    const playerIdx = gameState.currentPlayerIndex;
+    const sequence = gameState.currentSequence;
+    if (!sequence || !courtRef.current) return;
+    
+    let lastPos = null;
+    for (const move of sequence.moves) {
+      // Convert keyframes to Vector3s (court uses x, y as x, z)
+      const waypoints = move.animation.keyframes.map(kf =>
+        new Vector3(kf.position.x / 40 - 5, 1.1, kf.position.y / 60 - 5) // scale and center for Babylon
+      );
+      if (['dribble', 'crossover', 'spin'].includes(move.type)) {
+        if (move.type === 'crossover') {
+          // Use start and end positions for crossover
+          const from = new Vector3(move.animation.startPosition.x / 40 - 5, 1.1, move.animation.startPosition.y / 60 - 5);
+          const to = new Vector3(move.animation.endPosition.x / 40 - 5, 1.1, move.animation.endPosition.y / 60 - 5);
+          await courtRef.current.animatePlayerCrossover(playerIdx, from, to);
+          lastPos = to;
+        } else if (move.type === 'spin') {
+          // Use start and end positions for spin
+          const from = new Vector3(move.animation.startPosition.x / 40 - 5, 1.1, move.animation.startPosition.y / 60 - 5);
+          const to = new Vector3(move.animation.endPosition.x / 40 - 5, 1.1, move.animation.endPosition.y / 60 - 5);
+          await courtRef.current.animatePlayerSpin(playerIdx, from, to);
+          lastPos = to;
+        } else {
+          await courtRef.current.animatePlayerDribble(playerIdx, waypoints);
+          lastPos = waypoints[waypoints.length - 1];
+        }
+      } else if (['shoot', 'jump', 'layup', 'step-back', 'euro-step', 'drive', 'dunk', 'reverse-dunk', 'windmill-dunk', 'tomahawk-dunk', 'between-legs-dunk', 'alley-oop-dunk'].includes(move.type)) {
+        // Use start and end positions
+        const from = new Vector3(move.animation.startPosition.x / 40 - 5, 1.1, move.animation.startPosition.y / 60 - 5);
+        const to = new Vector3(move.animation.endPosition.x / 40 - 5, 1.1, move.animation.endPosition.y / 60 - 5);
+        if (move.type === 'layup') {
+          await courtRef.current.animatePlayerLayup(playerIdx, from, to);
+        } else if (move.type === 'step-back') {
+          await courtRef.current.animatePlayerStepBack(playerIdx, from, to);
+        } else if (move.type === 'euro-step') {
+          await courtRef.current.animatePlayerEuroStep(playerIdx, from, to);
+        } else if (move.type === 'drive') {
+          await courtRef.current.animatePlayerDrive(playerIdx, from, to);
+        } else if (move.type === 'dunk') {
+          await courtRef.current.animatePlayerDunk(playerIdx, from, to);
+        } else if (move.type === 'reverse-dunk') {
+          await courtRef.current.animatePlayerReverseDunk(playerIdx, from, to);
+        } else if (move.type === 'windmill-dunk') {
+          await courtRef.current.animatePlayerWindmillDunk(playerIdx, from, to);
+        } else if (move.type === 'tomahawk-dunk') {
+          await courtRef.current.animatePlayerTomahawkDunk(playerIdx, from, to);
+        } else if (move.type === 'between-legs-dunk') {
+          await courtRef.current.animatePlayerBetweenLegsDunk(playerIdx, from, to);
+        } else if (move.type === 'alley-oop-dunk') {
+          await courtRef.current.animatePlayerAlleyOopDunk(playerIdx, from, to);
+        } else {
+          await courtRef.current.animatePlayerJump(playerIdx, from, to);
+        }
+        lastPos = to;
+      }
+      // Update player position in state after each move
+      if (lastPos) {
+        setGameState(prev => {
+          const updatedPlayers = [...prev.players];
+          updatedPlayers[playerIdx] = {
+            ...updatedPlayers[playerIdx],
+            position: { x: lastPos.x, y: lastPos.z },
+          };
+          return { ...prev, players: updatedPlayers };
+        });
+      }
+    }
+    
+    // AI sequence complete - determine success/failure
+    setTimeout(() => {
+      handleAISequenceComplete();
+    }, 1000);
+  };
+
+  const handleAISequenceComplete = () => {
+    const difficulty = getAIDifficulty();
+    const aiConfig = AI_DIFFICULTY[difficulty];
+    const accuracy = Math.random() * (aiConfig.accuracyRange[1] - aiConfig.accuracyRange[0]) + aiConfig.accuracyRange[0];
+    const success = Math.random() < aiConfig.successRate;
+    
+    setSequenceAccuracy(accuracy);
+    
+    if (success) {
+      // AI succeeded
+      Vibration.vibrate([0, 100, 50, 100]);
+      setJustEarnedLetters([]);
+      Alert.alert(
+        'AI Success!',
+        `${gameState.players[gameState.currentPlayerIndex].name} successfully completed the sequence with ${Math.round(accuracy * 100)}% accuracy!`,
+        [{ text: 'Continue', onPress: () => {
+          setIsAITurn(false);
+          nextPlayer();
+        }}]
+      );
+    } else {
+      // AI failed - gets a letter
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+      const newLetterIdx = currentPlayer.letters.length;
+      const newLetters = [...currentPlayer.letters, gameState.gameWord[newLetterIdx]];
+      const updatedPlayers = [...gameState.players];
+      updatedPlayers[gameState.currentPlayerIndex] = {
+        ...currentPlayer,
+        letters: newLetters,
+      };
+      
+      // Mark just earned letter for animation
+      const jel = gameState.players.map((p, idx) => idx === gameState.currentPlayerIndex ? [newLetterIdx] : []);
+      setJustEarnedLetters(jel);
+      
+      Alert.alert(
+        'AI Failed!',
+        `${gameState.players[gameState.currentPlayerIndex].name} failed the sequence with ${Math.round(accuracy * 100)}% accuracy and earned a letter!`,
+        [{ text: 'Continue', onPress: () => {
+          setIsAITurn(false);
+          setGameState(prev => ({
+            ...prev,
+            players: updatedPlayers,
+          }));
+          nextPlayer();
+        }}]
+      );
+    }
+  };
 
   const generateNewSequence = () => {
     const difficulty = gameState.players[gameState.currentPlayerIndex].letters.length === 0 ? 'easy' : 
@@ -372,9 +572,25 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
         onBack={handleBackToMenu}
       />
       
+      {/* AI Status Overlay */}
+      {isAITurn && (
+        <View style={styles.aiStatusContainer}>
+          <View style={styles.aiStatusContent}>
+            <Text style={styles.aiStatusText}>
+              {aiThinking ? 'AI is thinking...' : 'AI is playing...'}
+            </Text>
+            {aiThinking && (
+              <View style={styles.aiThinkingIndicator}>
+                <Text style={styles.aiThinkingDots}>...</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
       {/* Game Controls */}
       <View style={styles.gameControls}>
-        {currentPhase === 'waiting' && (
+        {currentPhase === 'waiting' && !isAITurn && (
           <TouchableOpacity
             style={styles.startButton}
             onPress={startSequenceDemo}
@@ -382,6 +598,14 @@ export const Gameplay: React.FC<GameplayProps> = ({ navigation, route }) => {
           >
             <Text style={styles.startButtonText}>Start Sequence</Text>
           </TouchableOpacity>
+        )}
+        
+        {currentPhase === 'waiting' && isAITurn && (
+          <View style={styles.aiWaitingContainer}>
+            <Text style={styles.aiWaitingText}>
+              {aiThinking ? 'AI is thinking...' : 'AI is playing...'}
+            </Text>
+          </View>
         )}
         
         {currentPhase === 'replay' && (
@@ -471,11 +695,11 @@ const styles = StyleSheet.create({
   },
   gameControls: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 150,
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 1000,
+    zIndex: 9999,
   },
   startButton: {
     backgroundColor: '#ffb347',
@@ -527,12 +751,12 @@ const styles = StyleSheet.create({
   },
   testButtonsContainer: {
     position: 'absolute',
-    bottom: 160,
+    bottom: 220,
     left: 16,
     right: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    zIndex: 1000,
+    zIndex: 9999,
   },
   testButton: {
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -554,7 +778,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(30,30,30,0.7)',
+    backgroundColor: 'rgba(30,30,30,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
@@ -562,7 +786,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    zIndex: 1000,
+    zIndex: 9999,
   },
   fabBackButtonText: {
     color: '#fff',
@@ -570,5 +794,47 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginTop: -2,
+  },
+  aiStatusContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1001,
+  },
+  aiStatusContent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  aiStatusText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  aiThinkingIndicator: {
+    flexDirection: 'row',
+  },
+  aiThinkingDots: {
+    color: '#ffb347',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  aiWaitingContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 25,
+  },
+  aiWaitingText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
